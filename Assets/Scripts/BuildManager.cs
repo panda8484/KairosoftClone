@@ -23,19 +23,57 @@ public class BuildManager : Singleton<BuildManager>
     [SerializeField] int length = 1; // tile prefab length of side
     [SerializeField] private Subject subjectToObserve;
 
-    int minXAxisPosition => - xAxisNum / 2 * length;
-    int maxXAxisPosition => - xAxisNum / 2 * length + (xAxisNum - 1) * length;
-    int minZAxisPosition => - zAxisNum / 2 * length;
-    int maxZAxisPosition => - zAxisNum / 2 * length + (zAxisNum - 1) * length;
-    // private void OnThingHappened()
-    // {
-    //     // this function is executed when subjectToObserve changes 
-    //     Debug.Log("Observer responds");
-    // }
+    public int minXAxisPosition => - xAxisNum / 2 * length;
+    public int maxXAxisPosition => - xAxisNum / 2 * length + (xAxisNum - 1) * length;
+    public int minZAxisPosition => - zAxisNum / 2 * length;
+    public int maxZAxisPosition => - zAxisNum / 2 * length + (zAxisNum - 1) * length;
+
+    
+    public (int,int) entrancePosition => ((minXAxisPosition + maxXAxisPosition) / 2, minZAxisPosition); //학생들이 들어오는 정문
+    // private Dictionary<Building, (int centerX, int centerY)> buildingCenters = new Dictionary<Building, (int centerX, int centerY)>();
+    // 빌딩의 ID를 키로 사용하여 중심 좌표를 저장하는 해시맵
+    private Dictionary<int, (int centerX, int centerY)> buildingCenters = new Dictionary<int, (int centerX, int centerY)>();
+
+
+    public Graph graph; // save tile position as graph
+    public int totalBuildingsConstructedNum = 0;
+
+
+    public override void Awake()
+    {
+        base.Awake(); // singleton class awake method executed
+        if (subjectToObserve != null)
+        {
+            subjectToObserve.ThingHappened += OnThingHappened;
+        }
+
+        CreateTileGrid(xAxisNum, zAxisNum, length);
+
+        (int, int) startNodeKey = (0,0); 
+        (int, int) endNodeKey = (10,10);
+        List<Vector3> shortestPath = graph.GetShortestPath(startNodeKey, endNodeKey);
+    }
+    void Start()
+    {
+        
+
+        // foreach (Vector3 p in shortestPath)
+        // {
+        //     Debug.Log($"path {p.x}, {p.z}");
+        // }
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        UserBuild();
+    }
+
+
     private void OnThingHappened()
     {       
         isConstructionMode = true; // 건설 모드 활성화
-        Debug.Log("Observer responds");
+        // Debug.Log("Observer responds");
     }
 
     private void UserBuild()
@@ -57,46 +95,14 @@ public class BuildManager : Singleton<BuildManager>
                 int zTilePosition = Mathf.FloorToInt(buildPosition.z / length) * length;
 
                 BuildObjectOnTile(basicBuilding, xTilePosition, zTilePosition);
+                basicBuilding.setId(totalBuildingsConstructedNum);
                 
             }
+            totalBuildingsConstructedNum += 1;
             isConstructionMode = false;
         }
     }
 
-
-    private Graph graph; // save tile position as graph
-
-
-    public override void Awake()
-    {
-        base.Awake(); // singleton class awake method executed
-        if (subjectToObserve != null)
-        {
-            subjectToObserve.ThingHappened += OnThingHappened;
-        }
-    }
-    void Start()
-    {
-        CreateTileGrid(xAxisNum, zAxisNum, length);
-
-        (int, int) startNodeKey = (0,0); 
-        (int, int) endNodeKey = (10,10);
-        List<Vector3> shortestPath = graph.GetShortestPath(startNodeKey, endNodeKey);
-
-        foreach (Vector3 p in shortestPath)
-        {
-            Debug.Log($"path {p.x}, {p.z}");
-        }
-
-        BuildObjectOnTile(basicBuilding, 4, 4);
-        BuildObjectOnTile(basicBuilding, 7, 7);
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        UserBuild();
-    }
 
     
 
@@ -128,20 +134,34 @@ public class BuildManager : Singleton<BuildManager>
         int startX = xPosition - (xLength - 1) / 2;
         int startZ = zPosition - (zLength - 1) / 2;
 
+
         for (int i = 0; i < xLength; i++)
         {
             for (int j = 0; j < zLength; j++)
-            {
+            {   
+                if (j == building.centerZ && i <= building.centerX) continue; // 빌딩 중심까지 빈칸으로 남겨둠
                 occupiedTiles.Add((startX + i * length, startZ + j * length));
             }
         }
 
+
+
+
         if (isConstructable(occupiedTiles))
         {   
-            Debug.Log("constructable!!!!!");
+            int globalCoorBuilingCenterX = startX + building.centerX;
+            int globalCoorBuilingCenterZ = startZ + building.centerZ;
+
+            Debug.Log($"constructable!!!!!, building center is {globalCoorBuilingCenterX}, {globalCoorBuilingCenterZ}");
+            
             Vector3 position = new Vector3(xPosition, (float) (yLength / 2.0), zPosition);
-            Instantiate(building, position, Quaternion.identity);
+            Building newBuilding = Instantiate(building, position, Quaternion.identity);
+            newBuilding.setId(totalBuildingsConstructedNum);
+            Debug.Log($"building.Id: {newBuilding.Id}");
+
+            GameManager.Instance.UpdateGold(-newBuilding.BaseCost);
             graph.ChangeNodeOccupiedState(occupiedTiles, true);
+            buildingCenters[newBuilding.Id] = (globalCoorBuilingCenterX, globalCoorBuilingCenterZ);
         }
         else
         {
@@ -164,5 +184,40 @@ public class BuildManager : Singleton<BuildManager>
             if (graph.isOccupied(tilePositionPair)) return false;
         }
         return true;
+    }
+
+
+    public (int centerX, int centerY) GetRandomBuildingCenter()
+    {
+        if (buildingCenters.Count > 0)
+        {
+            // 빌딩들이 존재할 경우, 랜덤한 빌딩을 선택하여 그 중심 좌표를 반환
+            int randomIndex = UnityEngine.Random.Range(0, buildingCenters.Count);
+            Debug.Log($"randomIndex: {randomIndex}");
+            Debug.Log($"buildingCenters.Count: {buildingCenters.Count}");
+            int randomBuildingId = 0;
+
+            // Dictionary의 key 값 중 랜덤하게 하나 선택
+            int currentIndex = 0;
+            foreach (var building in buildingCenters.Keys)
+            {
+                if (currentIndex == randomIndex)
+                {
+                    randomBuildingId = building;
+                    break;
+                }
+                currentIndex++;
+            }
+
+            return buildingCenters[randomBuildingId];
+        }
+        else
+        {
+            // 빌딩이 없을 경우, 랜덤한 좌표를 반환
+            int randomX = UnityEngine.Random.Range(minXAxisPosition, maxXAxisPosition);
+            int randomY = UnityEngine.Random.Range(minZAxisPosition, maxZAxisPosition);
+            Debug.LogWarning("No buildings available. Returning random coordinates.");
+            return (randomX, randomY);
+        }
     }
 }
