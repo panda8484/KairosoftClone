@@ -152,18 +152,15 @@ public class GameManager : Singleton<GameManager>
 
             student.transform.rotation = Quaternion.identity;
             currentStudents.Add(student);  // 현재 계절에 학교에 있는 학생 리스트에 추가
-            Debug.Log($"currentStudents size is {currentStudents.Count} students");
+            // Debug.Log($"currentStudents size is {currentStudents.Count} students");
             
             // UnitMover 컴포넌트가 존재하는지 확인
             UnitMover unitMover = student.GetComponent<UnitMover>();
             if (unitMover != null)
             {   
-                Debug.Log("UnitMover component Exists");
                 // 랜덤한 타겟 위치로 학생을 이동시킴
                 // (int targetX, int targetZ) = GetRandomTargetPosition();
                 (int targetX, int targetZ) = BuildManager.Instance.GetRandomBuildingCenter();
-                Debug.Log($"targetX: {targetX}");
-                Debug.Log($"targetZ: {targetZ}");
                 unitMover.StartMoveUnit((targetX, targetZ));
             }
             else

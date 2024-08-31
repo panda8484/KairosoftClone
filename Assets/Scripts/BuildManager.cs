@@ -80,7 +80,6 @@ public class BuildManager : Singleton<BuildManager>
     {
         if (isConstructionMode && Input.GetMouseButtonDown(0)) // 마우스 왼쪽 버튼을 클릭했는지 확인
         {   
-            Debug.Log("mouse click!!");
             Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
             RaycastHit hit;
 
@@ -193,8 +192,6 @@ public class BuildManager : Singleton<BuildManager>
         {
             // 빌딩들이 존재할 경우, 랜덤한 빌딩을 선택하여 그 중심 좌표를 반환
             int randomIndex = UnityEngine.Random.Range(0, buildingCenters.Count);
-            Debug.Log($"randomIndex: {randomIndex}");
-            Debug.Log($"buildingCenters.Count: {buildingCenters.Count}");
             int randomBuildingId = 0;
 
             // Dictionary의 key 값 중 랜덤하게 하나 선택
